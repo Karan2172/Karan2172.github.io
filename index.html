@@ -2,62 +2,109 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Supply Chain & Operations News</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Supply Chain News</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+    h2 {
+      margin-top: 40px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+    }
+    ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    li {
+      margin-bottom: 10px;
+    }
+    .loading {
+      color: #888;
+    }
+    a {
+      text-decoration: none;
+      color: #1a0dab;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-  <h1>Latest Supply Chain & Operations News</h1>
+  <h1>Supply Chain & Operations Headlines</h1>
 
-  <h2>SCMR</h2>
-  <div id="scmr-feed">Loading...</div>
-
-  <h2>Supply Chain Dive</h2>
-  <div id="scd-feed">Loading...</div>
-
-  <h2>MIT Sloan (Operations)</h2>
-  <div id="mit-feed">Loading...</div>
+  <div id="feeds">
+    <section id="scmr">
+      <h2>Supply Chain Management Review</h2>
+      <p class="loading">Loading...</p>
+    </section>
+    <section id="scd">
+      <h2>Supply Chain Dive</h2>
+      <p class="loading">Loading...</p>
+    </section>
+    <section id="mit">
+      <h2>MIT Operations News</h2>
+      <p class="loading">Loading...</p>
+    </section>
+  </div>
 
   <script>
     const feeds = [
       {
-        url: "https://www.scmr.com/rss",
-        elementId: "scmr-feed"
+        id: 'scmr',
+        name: 'Supply Chain Management Review',
+        url: 'https://www.scmr.com/rss'
       },
       {
-        url: "https://www.supplychaindive.com/rss",
-        elementId: "scd-feed"
+        id: 'scd',
+        name: 'Supply Chain Dive',
+        url: 'https://www.supplychaindive.com/rss'
       },
       {
-        url: "https://news.mit.edu/topic/operations/rss",
-        elementId: "mit-feed"
+        id: 'mit',
+        name: 'MIT Operations News',
+        url: 'https://news.mit.edu/topic/operations/rss'
       }
     ];
 
-    feeds.forEach(feed => {
-      const api = `https://api.allorigins.win/get?url=${encodeURIComponent(feed.url)}`;
-
-      fetch(api)
+    function fetchFeed(feed) {
+      const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(feed.url);
+      fetch(proxyUrl)
         .then(response => {
-          if (response.ok) return response.json();
-          throw new Error("Network response was not ok.");
+          if (!response.ok) throw new Error('Network response was not ok.');
+          return response.json();
         })
         .then(data => {
           const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(data.contents, "text/xml");
-          const items = xmlDoc.querySelectorAll("item");
-          let html = "<ul>";
-          items.forEach((item, index) => {
-            if (index < 5) {
-              html += `<li><a href="${item.querySelector("link").textContent}" target="_blank">${item.querySelector("title").textContent}</a></li>`;
-            }
+          const xml = parser.parseFromString(data.contents, 'application/xml');
+          const items = Array.from(xml.querySelectorAll('item')).slice(0, 5);
+
+          const section = document.getElementById(feed.id);
+          section.innerHTML = `<h2>${feed.name}</h2>`;
+
+          const ul = document.createElement('ul');
+          items.forEach(item => {
+            const title = item.querySelector('title')?.textContent || 'No title';
+            const link = item.querySelector('link')?.textContent || '#';
+            const li = document.createElement('li');
+            li.innerHTML = `<a href="${link}" target="_blank" rel="noopener">${title}</a>`;
+            ul.appendChild(li);
           });
-          html += "</ul>";
-          document.getElementById(feed.elementId).innerHTML = html;
+
+          section.appendChild(ul);
         })
-        .catch(error => {
-          document.getElementById(feed.elementId).innerHTML = "Error loading feed.";
-          console.error("Error fetching feed:", error);
+        .catch(() => {
+          const section = document.getElementById(feed.id);
+          section.innerHTML = `<h2>${feed.name}</h2><p>Error loading feed.</p>`;
         });
-    });
+    }
+
+    feeds.forEach(fetchFeed);
   </script>
 </body>
 </html>
