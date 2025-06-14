@@ -81,5 +81,49 @@
   <footer>
     &copy; 2025 The OpsWire | Curated by Karan Bhatt | <a href="#" style="color: #ffc107; text-decoration: underline;">Subscribe</a> (coming soon)
   </footer>
+  <script>
+  const feeds = [
+    {
+      url: "https://www.scmr.com/rss",
+      elementId: "scmr-feed"
+    },
+    {
+      url: "https://www.supplychaindive.com/rss",
+      elementId: "scd-feed"
+    },
+    {
+      url: "https://news.mit.edu/topic/operations/rss",
+      elementId: "mit-feed"
+    }
+  ];
+
+  feeds.forEach(feed => {
+    const api = `https://api.allorigins.win/get?url=${encodeURIComponent(feed.url)}`;
+
+    fetch(api)
+      .then(response => {
+        if (response.ok) return response.json();
+        throw new Error("Network response was not ok.");
+      })
+      .then(data => {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(data.contents, "text/xml");
+        const items = xmlDoc.querySelectorAll("item");
+        let html = "<ul>";
+        items.forEach((item, index) => {
+          if (index < 5) {
+            html += `<li><a href="${item.querySelector("link").textContent}" target="_blank">${item.querySelector("title").textContent}</a></li>`;
+          }
+        });
+        html += "</ul>";
+        document.getElementById(feed.elementId).innerHTML = html;
+      })
+      .catch(error => {
+        document.getElementById(feed.elementId).innerHTML = "Error loading feed.";
+        console.error("Error fetching feed:", error);
+      });
+  });
+</script>
+
 </body>
 </html>
