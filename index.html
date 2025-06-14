@@ -1,112 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Supply Chain & Operations Headlines</title>
+  <meta charset="UTF-8">
+  <title>Supply Chain & Operations News</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 800px;
-      margin: auto;
-      padding: 20px;
-    }
-    section {
-      margin-top: 40px;
-    }
-    h2 {
-      margin-bottom: 10px;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 5px;
-    }
-    ul {
-      padding-left: 0;
-      list-style: none;
-    }
-    li {
-      margin-bottom: 8px;
-    }
-    .loading {
-      color: #888;
-    }
-    .error {
-      color: red;
-    }
-    a {
-      text-decoration: none;
-      color: #0066cc;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
+    body { font-family: sans-serif; margin: 2em; background: #f9f9f9; color: #333; }
+    h1 { text-align: center; }
+    section { margin-bottom: 2em; background: #fff; padding: 1em 2em; border-radius: 8px; box-shadow: 0 2px 4px #0001;}
+    h2 { margin-top: 0.5em; }
+    ul { padding-left: 1.2em; }
+    li { margin-bottom: 0.6em; }
+    .fallback { color: #888; font-style: italic; }
+    a { color: #1976d2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <h1>Supply Chain & Operations Headlines</h1>
-  <div id="feeds"></div>
+  <h1>Supply Chain & Operations News</h1>
+
+  <section id="scmr">
+    <h2>Supply Chain Management Review</h2>
+    <div class="fallback">Loading...</div>
+    <ul style="display:none"></ul>
+  </section>
+
+  <section id="scdive">
+    <h2>Supply Chain Dive</h2>
+    <div class="fallback">Loading...</div>
+    <ul style="display:none"></ul>
+  </section>
+
+  <section id="mitnews">
+    <h2>MIT News: Operations</h2>
+    <div class="fallback">Loading...</div>
+    <ul style="display:none"></ul>
+  </section>
 
   <script>
+    // Feed configs: section id, display name, and RSS URL
     const feeds = [
-      { id: 'scmr', name: 'Supply Chain Management Review', url: 'https://www.scmr.com/rss' },
-      { id: 'scd', name: 'Supply Chain Dive', url: 'https://www.supplychaindive.com/rss' },
-      { id: 'mit', name: 'MIT Operations News', url: 'https://news.mit.edu/topic/operations/rss' }
+      {
+        id: "scmr",
+        url: "https://www.scmr.com/rss"
+      },
+      {
+        id: "scdive",
+        url: "https://www.supplychaindive.com/rss"
+      },
+      {
+        id: "mitnews",
+        url: "https://news.mit.edu/topic/operations/rss"
+      }
     ];
-    const feedsContainer = document.getElementById('feeds');
 
+    // Fetch and display each feed
     feeds.forEach(feed => {
-      const section = document.createElement('section');
-      section.id = feed.id;
-      section.innerHTML = `<h2>${feed.name}</h2><p class="loading">Loading...</p>`;
-      feedsContainer.appendChild(section);
-      fetchFeed(feed);
-    });
+      const section = document.getElementById(feed.id);
+      const fallback = section.querySelector(".fallback");
+      const ul = section.querySelector("ul");
+      const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(feed.url);
 
-    function fetchFeed(feed) {
-      const proxy = 'https://api.allorigins.win/get?url=';
-      const url = proxy + encodeURIComponent(feed.url);
-
-      fetch(url)
-        .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-          return res.json();
+      fetch(proxyUrl)
+        .then(response => {
+          if (!response.ok) throw new Error("Network response was not ok");
+          return response.json();
         })
         .then(data => {
-          const xml = new DOMParser().parseFromString(data.contents, 'application/xml');
-          if (xml.querySelector('parsererror')) {
-            console.error(`Parser error in ${feed.name}`, data.contents);
-            throw new Error('Invalid XML');
+          // Parse XML from the fetched contents
+          const parser = new DOMParser();
+          const xml = parser.parseFromString(data.contents, "application/xml");
+          let items = Array.from(xml.querySelectorAll("item"));
+          if (items.length === 0) {
+            // Some Atom feeds use <entry> instead of <item>
+            items = Array.from(xml.querySelectorAll("entry"));
           }
-          const items = Array.from(xml.querySelectorAll('item')).slice(0, 5);
-          renderItems(feed, items);
+          if (!items.length) throw new Error("No items found in feed");
+
+          ul.innerHTML = ""; // Clear list
+          for (let i = 0; i < Math.min(5, items.length); i++) {
+            const item = items[i];
+            // Try to get title and link in both RSS and Atom styles
+            const title = (item.querySelector("title") && item.querySelector("title").textContent) || "No title";
+            let link = "";
+            const linkTag = item.querySelector("link");
+            if (linkTag) {
+              // Atom: <link href="..."/>
+              link = linkTag.getAttribute("href") || linkTag.textContent;
+            } else if (item.querySelector("guid")) {
+              link = item.querySelector("guid").textContent;
+            }
+            // RSS: <link>...</link>
+            if (!link && item.querySelector("link")) {
+              link = item.querySelector("link").textContent;
+            }
+
+            // Fallback for MIT News Atom feed (link in <id>)
+            if (!link && item.querySelector("id")) {
+              link = item.querySelector("id").textContent;
+            }
+
+            const li = document.createElement("li");
+            const a = document.createElement("a");
+            a.href = link;
+            a.target = "_blank";
+            a.rel = "noopener";
+            a.textContent = title;
+            li.appendChild(a);
+            ul.appendChild(li);
+          }
+          fallback.style.display = "none";
+          ul.style.display = "";
         })
-        .catch(err => {
-          console.error(`Error fetching ${feed.name}:`, err);
-          showError(feed);
+        .catch(() => {
+          fallback.textContent = "Error loading feed";
+          ul.style.display = "none";
         });
-    }
-
-    function renderItems(feed, items) {
-      const section = document.getElementById(feed.id);
-      section.innerHTML = `<h2>${feed.name}</h2>`;
-      if (!items.length) {
-        section.innerHTML += '<p class="error">No articles found.</p>';
-        return;
-      }
-      const ul = document.createElement('ul');
-      items.forEach(item => {
-        const title = item.querySelector('title')?.textContent || 'Untitled';
-        const link = item.querySelector('link')?.textContent || item.querySelector('link')?.getAttribute('href') || '#';
-        const li = document.createElement('li');
-        li.innerHTML = `<a href="${link}" target="_blank" rel="noopener">${title}</a>`;
-        ul.appendChild(li);
-      });
-      section.appendChild(ul);
-    }
-
-    function showError(feed) {
-      const section = document.getElementById(feed.id);
-      section.innerHTML = `<h2>${feed.name}</h2><p class="error">Error loading feed. Check console for details.</p>`;
-    }
+    });
   </script>
 </body>
 </html>
